@@ -16,19 +16,26 @@ class Engine : public olc::PixelGameEngine
     {
       m_originX = m_originX == -1 ? ScreenWidth()/2 : m_originX;
       m_originY = m_originY == -1 ? ScreenHeight()/2 : m_originY;
-      m_maze->backtrack();
+      m_maze->backtrackInit();
+      testIndex = 0;
       return true;
     }
     bool OnUserUpdate(float fElapsedTime) override
     {
+      FillRect(0,0,ScreenWidth(),ScreenHeight(),olc::BLACK);
+      m_maze->backtrackIt();
       drawMaze();
-      return true;
+      int index = getIndex(GetMouseX(),GetMouseY());
+      DrawString(0,0,std::to_string(index),olc::BLACK);
+    return true;
     }
 
   private:
     int m_radius;
     CircleMaze* m_maze;
     int m_originX,m_originY;
+
+    int testIndex;
        
   private:
     int convertCoordX(int coord)
@@ -50,117 +57,181 @@ class Engine : public olc::PixelGameEngine
         teta += 2.0*M_PI;
       return teta;
     }
-    int getDim0(int x,int y)
-    {
-      x = convertCoordX(x);
-      y = convertCoordY(y);
-      int r = getR(x,y);
-      return m_maze->getDim0() - r/m_radius - 1;
-    }
-    int getDim1(int x,int y)
-    {
-      x = convertCoordX(x);
-      y = convertCoordY(y);
-      double teta = getTeta(x,y);
-      return teta * (m_maze->getDim1()/(2.0*M_PI));
-    }
-    int getX(double r,double teta)
+    double getX(double teta,double r)
     {
       return r * std::cos(teta);
     }
-    int getY(double r,double teta)
+    double getY(double teta,double r)
     {
       return r * std::sin(teta);
     }
+    
+    void drawArc(int r,double teta1,double teta2,olc::Pixel color = olc::WHITE)
+    {
+      int x = 0, y = r; 
+      int d = 3 - 2 * r; 
+      drawBresCircle(x,y,teta1,teta2,color); 
+      while (y >= x) 
+      { 
+          x++; 
+          if (d > 0) 
+          { 
+              y--;  
+              d = d + 4 * (x - y) + 10; 
+          } 
+          else
+              d = d + 4 * x + 6; 
+          drawBresCircle(x,y,teta1,teta2,color);
+      }
 
+    }
+    void drawBresCircle(int x,int y,double teta1,double teta2,olc::Pixel color = olc::WHITE)
+    {
+      std::vector<int> xVect = {-x,x};
+      std::vector<int> yVect = {-y,y};
+      for(int j : xVect)
+      {
+        for(int i : yVect)
+        {
+          double teta = getTeta(j,i);
+          if(teta>teta1 && teta<teta2)
+            Draw(m_originX + j,(m_originY - i),color);
+          teta = getTeta(i,j);
+          if(teta>=teta1 && teta<=teta2)
+            Draw(m_originX + i,(m_originY - j),color);
+        }
+      }
+    }
+
+    int getDim0(int x,int y)
+    {
+      int r = getR(convertCoordX(x),convertCoordY(y));
+      return m_maze->getDim0() - r/m_radius;
+    }
+    int getDim1(int x,int y)
+    {
+      double teta = getTeta(convertCoordX(x),convertCoordY(y));
+      return teta * ((double)m_maze->getDim1()/(2.0*M_PI));
+    }
+    int getIndex(int x,int y)
+    {
+      int index = getDim0(x,y)*m_maze->getDim1()+getDim1(x,y);
+      if(index>=m_maze->getDim0()*m_maze->getDim1())
+        index = m_maze->getDim0()*m_maze->getDim1();
+      return index;
+    }
 
     void drawMaze()
     {
-      for(int x = 0;x<ScreenWidth();x++)
+      for(int i = 0;i<m_maze->getDim0()*m_maze->getDim1();i++)
       {
-        for(int y = 0;y<ScreenHeight();y++)
+        if(i==m_maze->getCurrentCellIndex())
+          drawCell(i,olc::GREEN);
+        else if(m_maze->getCellState(i))
+          drawCell(i);
+        else
+          drawCell(i,olc::BLACK);
+      }
+      for(int i = 0;i<m_maze->getDim0()*m_maze->getDim1();i++)
+      {
+        if(m_maze->getWallH(i))
+          drawWallH(i);
+        else
+          drawWallH(i,olc::WHITE);
+        if(m_maze->getWallV(i))
+          drawWallV(i);
+        else
+          drawWallV(i,olc::WHITE);
+      }
+      DrawCircle(m_originX,m_originY,(m_maze->getDim0()+1)*m_radius,olc::BLACK);
+    }
+    void drawCell(int index,olc::Pixel color = olc::WHITE)
+    {
+      double coeffTeta = index%m_maze->getDim1();
+      double teta1 =  (coeffTeta/(double)m_maze->getDim1()) * (2.0*M_PI);
+
+      int coeffRadius = index/m_maze->getDim1();
+      int radius = (m_maze->getDim1()-coeffRadius + 1)*m_radius;
+
+      double teta2 = teta1 + (1.0/(double)m_maze->getDim1())* (2.0*M_PI);
+      int radiusMin = radius - m_radius;
+      while(radius>radiusMin){
+        drawArc(radius,teta1,teta2,color);
+        radius--;
+      }
+
+    }
+    void drawCell1(int index,olc::Pixel color = olc::WHITE)
+    {
+      int temp = (m_maze->getDim0())*m_radius;
+      for(int x = m_originX-temp;x<m_originX+temp;x++)
+      {
+        for(int y = m_originY - temp;y<m_originY+temp;y++)
         {
-          drawCell(x,y);
-        }
-      }
-      drawWalls();
-
-    }
-    void drawWalls()
-    {
-      for(int j = 0;j<m_maze->getDim1();j++)
-      {
-        for(int i = 0;i<m_maze->getDim0()-1;i++){
-          if(m_maze->getWallV(i*m_maze->getDim1()+j))
-          {
-            double teta = (double)j/(m_maze->getDim1())*M_PI*2.0;
-            int r = m_radius*m_maze->getDim0() - i*m_radius;
-            int xStart = getX(r,teta)+m_originX;
-            int yStart = m_originY + getY(r,teta);
-
-            r-=m_radius;
-            int xEnd = getX(r,teta)+m_originX;
-            int yEnd = m_originY + getY(r,teta);
-
-            DrawLine(xStart,yStart,xEnd,yEnd,olc::WHITE);
-          }
-
+          if(getIndex(x,y)==index)
+            Draw(x,y,color);
         }
       }
     }
-    void drawCell(int x,int y)
+    void drawWallV(int index,olc::Pixel color = olc::BLACK)
     {
-      int dim0 = getDim0(x,y);
-      int dim1 = getDim1(x,y);
-      int index = dim0*m_maze->getDim1()+dim1;
-      if(index<0){
-        Draw(x,y,olc::BLACK);
-        return;
-      }
-      if(index>m_maze->getDim0()*m_maze->getDim1()+1)
-        index = m_maze->getDim0()*m_maze->getDim1()+1;
-      if(m_maze->getCellState(index))
-        Draw(x,y,olc::WHITE);
-    }
+      double coeffTeta = index%m_maze->getDim1();
+      double teta =  -(coeffTeta/(double)m_maze->getDim1()) * (2.0*M_PI);
 
-    void drawWallsTest()
-    {
-      for(int i = 0;i<m_maze->getDim1();i++)
-      {
-        double teta = (double)i/(double)m_maze->getDim1()*(2.0*M_PI);
-        int r = m_maze->getDim0()*m_radius;
-        int xStart = getX(r,teta) + m_originX;
-        int yStart = m_originY + getY(r,teta);
-        
-        teta = (double)(i + m_maze->getDim1()/2)/(double)m_maze->getDim1()*(2.0*M_PI);
-        int xEnd = getX(r,teta) + m_originX;
-        int yEnd = m_originY + getY(r,teta);
-        DrawLine(xStart,yStart,xEnd,yEnd,olc::BLUE);
-      }
+      int coeffRadius = index/m_maze->getDim1();
+      int radius = (m_maze->getDim1()+1-coeffRadius)*m_radius;
+       
+      int xStart = getX(teta,radius);
+      int yStart = getY(teta,radius);
+
+
+      radius -=m_radius;
+
+      int xEnd = getX(teta,radius);
+      int yEnd = getY(teta,radius);
+      
+      xStart+=ScreenWidth()/2;
+      xEnd += ScreenWidth()/2;
+      yEnd += ScreenHeight()/2;
+      yStart += ScreenHeight()/2;
+      DrawLine(xStart,yStart,xEnd,yEnd,color);
     }
+    void drawWallH(int index,olc::Pixel color = olc::BLACK)
+    {
+      double coeffTeta = index%m_maze->getDim1();
+      double teta1 =  (coeffTeta/(double)m_maze->getDim1()) * (2.0*M_PI);
+
+      int coeffRadius = index/m_maze->getDim1();
+      int radius = (m_maze->getDim1()-coeffRadius)*m_radius;
+
+
+      double teta2 = teta1 + (1.0/(double)m_maze->getDim1())* (2.0*M_PI);
+
+      drawArc(radius,teta1,teta2,color);
+    }
+    
     void drawCirclesTest()
     {
       int currentDim0 = getDim0(GetMouseX(),GetMouseY());
-      for(int i = 0;i<m_maze->getDim0();i++)
+      int currentDim1 = getDim1(GetMouseX(),GetMouseY());
+      int index = getIndex(GetMouseX(),GetMouseY());
+      for(int i = 0;i<m_maze->getDim0()*m_maze->getDim1();i++)
       {
-        if(currentDim0 == m_maze->getDim0() - i - 1)
-          DrawCircle(m_originX,m_originY,(i+1)*m_radius,olc::RED);
-        else 
-          DrawCircle(m_originX,m_originY,(i+1)*m_radius,olc::GREEN);
+        drawWallH(i);
       }
-    }
-    void test()
-    {
-      FillRect(0,0,ScreenWidth(),ScreenHeight(),olc::GREY);
-      DrawCircle(m_originX,m_originY,200,olc::BLUE);
-      DrawLine(0,m_originY,ScreenWidth(),m_originY,olc::RED);
-      DrawLine(m_originX,0,m_originX,ScreenHeight(),olc::RED);
-      int mouseX = convertCoordX(GetMouseX());
-      int mouseY = convertCoordY(GetMouseY());
-      double r = getR(mouseX,mouseY);
-      double teta = getTeta(mouseX,mouseY);
-      std::string str = "r = "  + std::to_string(r) + "  teta = " + std::to_string(teta);
-      DrawString(GetMouseX() + 2,GetMouseY(),str);
+      for(int i =  0;i<m_maze->getDim1()*m_maze->getDim0();i++)
+      {
+        drawCell(i);
+      }
+
+      for(int i =  0;i<m_maze->getDim1()*m_maze->getDim0();i++)
+      {
+        drawWallV(i);
+      }
+      
+      DrawString(0,30,std::to_string(index));
+      DrawString(0,0,std::to_string(currentDim0));
+      DrawString(0,20,std::to_string(currentDim1));
     }
 
 };

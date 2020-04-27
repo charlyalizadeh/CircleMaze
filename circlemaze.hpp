@@ -7,7 +7,7 @@
 struct Cell{
   bool state;
   int index;
-  Cell(int _index = 0,bool _state = false):index(_index), state(_state){
+  Cell(int _index = -1,bool _state = false):index(_index), state(_state){
 
   }
 };
@@ -21,6 +21,8 @@ class CircleMaze
         m_cells.push_back(new Cell(i));
       m_matWallH = std::vector<bool>(m_dim0*m_dim1,true);
       m_matWallV = std::vector<bool>(m_dim0*m_dim1,true);
+      currentCell = new Cell();
+      m_cells[m_dim0*m_dim1+1]->state = true;
     }
     
 
@@ -36,7 +38,7 @@ class CircleMaze
       return false;
     else
     {
-     Cell* currentCell = m_stack.top();
+     currentCell = m_stack.top();
      m_stack.pop();
      std::vector<Cell*> nghb = getValidNeighboors(currentCell->index);
      if(!nghb.empty())
@@ -46,6 +48,7 @@ class CircleMaze
        removeWall(currentCell->index,neighboor->index);
        neighboor->state = true;
        m_stack.push(neighboor);
+       currentCell = neighboor;
      }
      return true;
     }
@@ -76,7 +79,10 @@ class CircleMaze
   {
     return m_dim1;
   }
-
+  int getCurrentCellIndex()
+  {
+    return currentCell->index;
+  }
 
    
   private:
@@ -85,9 +91,7 @@ class CircleMaze
     std::vector<bool> m_matWallH,m_matWallV;
     int m_seed;
     std::stack<Cell*> m_stack;
-
-
-
+    Cell* currentCell;
 
   private:
     std::vector<int> getNeighboorsIndex(int i)
@@ -113,7 +117,7 @@ class CircleMaze
       nghb.erase(std::remove_if(nghb.begin(),nghb.end(),
             [](const int& x){
               return x<0;
-            }));
+            }),nghb.end());
       std::replace_if(nghb.begin(),nghb.end(),
           [this](const int& x){
            return x>m_dim0*m_dim1; 
@@ -133,9 +137,9 @@ class CircleMaze
     {
       int min = std::min(coord1,coord2);
       int max = std::max(coord1,coord2);
-      if(min == max-8)
+      if(min == max-m_dim1)
         m_matWallH[min] = false;
-      else if(min == max - 7)
+      else if(min == max - (m_dim1 -1))
         m_matWallV[min] = false;
       else
         m_matWallV[max] = false;
