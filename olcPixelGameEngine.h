@@ -1410,15 +1410,13 @@ namespace olc
 		if (dx == 0) // Line is vertical
 		{
 			if (y2 < y1) std::swap(y1, y2);
-			for (y = y1; y <= y2; y++) if (rol()) Draw(x1, y, p);
-			return;
+			for (y = y1; y <= y2; y++) if (rol()) Draw(x1, y, p); 
 		}
 
 		if (dy == 0) // Line is horizontal
 		{
 			if (x2 < x1) std::swap(x1, x2);
 			for (x = x1; x <= x2; x++) if (rol()) Draw(x, y1, p);
-			return;
 		}
 
 		// Line is Funk-aye
@@ -1454,6 +1452,7 @@ namespace olc
 			{ x = x2; y = y2; ye = y1; }
 
 			if (rol()) Draw(x, y, p);
+
 
 			for (i = 0; y<ye; i++)
 			{
