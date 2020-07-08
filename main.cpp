@@ -4,9 +4,9 @@
 
 int main() 
 {
-    Engine* test = new Engine(50, 50, 10);
-    if (test->Construct(1920, 1080, 1, 1))
-        test->Start();
+    Engine engine(50,50,10);
+    if(engine.Construct(1920, 1080, 1, 1))
+        engine.Start();
     return 0;
 }
 
